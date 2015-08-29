@@ -209,6 +209,13 @@ int buspirate_spi_init(void)
 	int spispeed = 0x7;
 	int ret = 0;
 	int pullup = 0;
+	// May make better sense to assume external power as default if not specified
+	// But for backward compatability with logic till now (Aug2015), not doing it.
+	// Also most new flash chips are 1.8v ones and don't support 3.3v, so going
+	// forward, this default may require to change to 1 (i.e external power assumed)
+	// rather than the current 0 (assumes internal 3.3v is the power source as well
+	// as the spi and clk pins are driven in 3.3v mode rather than HiZ mode)
+	int powerext = 0;
 
 	dev = extract_programmer_param("dev");
 	if (dev && !strlen(dev)) {
@@ -241,6 +248,19 @@ int buspirate_spi_init(void)
 			; // ignore
 		else
 			msg_perr("Invalid pullups state, not using them.\n");
+	}
+	free(tmp);
+
+	tmp = extract_programmer_param("power");
+	if (tmp) {
+		if (strcasecmp("int", tmp) == 0)
+			powerext = 0;
+		else if (strcasecmp("ext", tmp) == 0)
+			powerext = 1;
+		else {
+			powerext = 1;
+			msg_perr("Invalid power state specified, assuming external power is used & provided on vpu/vextern pin for HiZ i/o pins.\n");
+		}
 	}
 	free(tmp);
 
@@ -416,6 +436,10 @@ int buspirate_spi_init(void)
 		bp_commbuf[0] |= (1 << 2);
 		msg_pdbg("Enabling pull-up resistors.\n");
 	}
+	if (powerext == 1) {
+		bp_commbuf[0] &= 0xf7;
+		msg_pdbg("PowerExternalMode P1of2: Disabling power-supplies, Assumes External power provided on vpu|vextern.\n");
+	}
 	ret = buspirate_sendrecv(bp_commbuf, 1, 1);
 	if (ret)
 		return 1;
@@ -436,6 +460,10 @@ int buspirate_spi_init(void)
 	
 	/* Set SPI config: output type, idle, clock edge, sample */
 	bp_commbuf[0] = 0x80 | 0xa;
+	if (powerext == 1) {
+		bp_commbuf[0] &= 0xf7;
+		msg_pdbg("PowerExternalMode P2of2: OutputType set to HiZ, Assumes External power provided on vpu|vextern.\n");
+	}
 	ret = buspirate_sendrecv(bp_commbuf, 1, 1);
 	if (ret)
 		return 1;
