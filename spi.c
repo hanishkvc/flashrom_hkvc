@@ -85,6 +85,7 @@ int default_spi_read(struct flashctx *flash, uint8_t *buf, unsigned int start,
 			 "flashrom@flashrom.org\n", __func__);
 		return 1;
 	}
+	msg_perr("INFO:READ: start:0x%X, len:%d",start,len);
 	return spi_read_chunked(flash, buf, start, len, max_data);
 }
 

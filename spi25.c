@@ -964,6 +964,8 @@ int spi_read_chunked(struct flashctx *flash, uint8_t *buf, unsigned int start,
 		starthere = max(start, i * page_size);
 		/* Length of bytes in the range in this page. */
 		lenhere = min(start + len, (i + 1) * page_size) - starthere;
+		if ((i%256) == 0)
+			msg_perr("INFO:read_chunked:%d: start:0x%X, len:%d\n",i,starthere,lenhere);
 		for (j = 0; j < lenhere; j += chunksize) {
 			toread = min(chunksize, lenhere - j);
 			rc = spi_nbyte_read(flash, starthere + j, buf + starthere - start + j, toread);

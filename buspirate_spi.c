@@ -206,9 +206,9 @@ int buspirate_spi_init(void)
 	int i;
 	unsigned int fw_version_major = 0;
 	unsigned int fw_version_minor = 0;
-	int spispeed = 0x7;
+	int spispeed = 0x3;
 	int ret = 0;
-	int pullup = 0;
+	int pullup = 1;
 	// May make better sense to assume external power as default if not specified
 	// But for backward compatability with logic till now (Aug2015), not doing it.
 	// Also most new flash chips are 1.8v ones and don't support 3.3v, so going
@@ -216,6 +216,7 @@ int buspirate_spi_init(void)
 	// rather than the current 0 (assumes internal 3.3v is the power source as well
 	// as the spi and clk pins are driven in 3.3v mode rather than HiZ mode)
 	int powerext = 0;
+	int outhiz = 1;
 
 	dev = extract_programmer_param("dev");
 	if (dev && !strlen(dev)) {
@@ -245,7 +246,7 @@ int buspirate_spi_init(void)
 		if (strcasecmp("on", tmp) == 0)
 			pullup = 1;
 		else if (strcasecmp("off", tmp) == 0)
-			; // ignore
+			pullup = 0; //; // ignore
 		else
 			msg_perr("Invalid pullups state, not using them.\n");
 	}
@@ -260,6 +261,23 @@ int buspirate_spi_init(void)
 		else {
 			powerext = 1;
 			msg_perr("Invalid power state specified, assuming external power is used & provided on vpu/vextern pin for HiZ i/o pins.\n");
+		}
+	}
+	free(tmp);
+	if (powerext == 1) {
+		msg_perr("NOTE: Forcing HiZ Mode wrt output, as External PowerMode is specified");
+		outhiz = 1;
+	}
+
+	tmp = extract_programmer_param("hiz");
+	if (tmp) {
+		if (strcasecmp("yes", tmp) == 0)
+			outhiz = 1;
+		else if (strcasecmp("no", tmp) == 0)
+			outhiz = 0;
+		else {
+			outhiz = 1;
+			msg_perr("Invalid HiZ state specified, assuming HiZ mode for safety reasons. So hope external power is used/provided \n");
 		}
 	}
 	free(tmp);
@@ -460,9 +478,9 @@ int buspirate_spi_init(void)
 	
 	/* Set SPI config: output type, idle, clock edge, sample */
 	bp_commbuf[0] = 0x80 | 0xa;
-	if (powerext == 1) {
+	if (outhiz == 1) {
 		bp_commbuf[0] &= 0xf7;
-		msg_pdbg("PowerExternalMode P2of2: OutputType set to HiZ, Assumes External power provided on vpu|vextern.\n");
+		msg_pdbg("HiZMode: OutputType set to HiZ, Assumes External power provided on vpu|vextern.\n");
 	}
 	ret = buspirate_sendrecv(bp_commbuf, 1, 1);
 	if (ret)
